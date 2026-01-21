@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
 
-st.set_page_config(page_title="Kenya Power Outage Predictor")
+st.set_page_config(page_title="Kenya Power Outage Predictor", layout="centered")
 
 @st.cache_data
 def load_data():
@@ -14,16 +13,9 @@ df['Date'] = pd.to_datetime(df['Date'])
 df['Hour'] = pd.to_datetime(df['Time']).dt.hour
 df['DayOfWeek'] = df['Date'].dt.dayofweek
 df['Month'] = df['Date'].dt.month
-df['Rain'] = df['Rain'].map({'Yes': 1, 'No': 0})
-df['Location_Code'] = df['Location'].astype('category').cat.codes
-
-X = df[['Hour', 'DayOfWeek', 'Month', 'Rain', 'Location_Code']]
-y = df['Outage_Occurred']
-
-model = RandomForestClassifier(n_estimators=100, random_state=42)
-model.fit(X, y)
 
 st.title("⚡ Kenya Power Outage Risk Predictor")
+st.caption("AI-assisted outage risk estimation for Kenya")
 
 location = st.selectbox("Location", df['Location'].unique())
 hour = st.slider("Hour of Day", 0, 23, 18)
@@ -31,14 +23,26 @@ day = st.slider("Day of Week (0=Monday)", 0, 6, 2)
 month = st.slider("Month", 1, 12, 3)
 rain = st.selectbox("Is it raining?", ["Yes", "No"])
 
-location_code = df[df['Location'] == location]['Location_Code'].iloc[0]
-rain_val = 1 if rain == "Yes" else 0
+# ---- Lightweight risk engine (NO sklearn) ----
+risk = 0.15
+
+if rain == "Yes":
+    risk += 0.25
+if hour in range(18, 23):
+    risk += 0.30
+if day in [4, 5]:
+    risk += 0.10
+if location in df['Location'].value_counts().head(3).index:
+    risk += 0.10
+
+risk = min(risk, 0.95)
 
 if st.button("Predict Outage Risk"):
-    risk = model.predict_proba([[hour, day, month, rain_val, location_code]])[0][1]
-    st.metric("Outage Risk (%)", f"{round(risk * 100, 2)}%")
+    st.metric("Estimated Outage Risk", f"{int(risk * 100)}%")
 
-    if risk > 0.6:
-        st.warning("⚠️ High outage risk. Prepare backup power.")
+    if risk >= 0.65:
+        st.warning("⚠️ High risk. Prepare backup power.")
+    elif risk >= 0.40:
+        st.info("ℹ️ Moderate risk. Stay alert.")
     else:
-        st.success("✅ Low outage risk. Normal operation expected.")
+        st.success("✅ Low risk. Normal operation expected.")
