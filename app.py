@@ -5,7 +5,7 @@ st.set_page_config(page_title="Kenya Power Outage Predictor", layout="centered")
 
 @st.cache_data
 def load_data():
-    return pd.read_excel("Kenya_Power_Outage_Estimated_Data.xlsx")
+   return pd.read_csv("data.csv")
 
 df = load_data()
 
